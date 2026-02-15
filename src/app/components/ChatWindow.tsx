@@ -6,7 +6,6 @@ import { messageService } from '../services/messageService';
 import { useAuth } from '../context/AuthContext';
 import { Phone, Video, Info, Send, Smile, Paperclip, ArrowLeft, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
-import { CallPopup } from './CallPopup';
 import { useTranslation } from '../context/LanguageContext';
 
 interface ChatWindowProps {
@@ -14,20 +13,21 @@ interface ChatWindowProps {
   onBack?: () => void;
 }
 
+import { useCall } from '../context/CallContext';
 import { useSocket } from '../context/SocketContext';
-
-// ... (existing imports)
 
 export const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onBack }) => {
   const { t } = useTranslation();
   const { user: currentUser } = useAuth();
-  const { socket } = useSocket(); // Use Socket
+  const { socket } = useSocket();
+  const { startCall } = useCall(); // Use CallContext
+  
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
-  const [showCallPopup, setShowCallPopup] = useState(false);
-  const [callType, setCallType] = useState<'video' | 'audio'>('video');
+  // Removed local call state
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
@@ -45,7 +45,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onBack }) 
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  // Fetch initial messages
+  // ... (Fetch messages logic remains same)
   const fetchMessages = useCallback(async () => {
     try {
       setLoading(true);
@@ -74,17 +74,17 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onBack }) 
   }, [conversation.id]);
 
   useEffect(() => {
-    setMessages([]); // Clear messages immediately when conversation ID changes
+    setMessages([]); 
     fetchMessages();
-    setHasMore(true); // Reset hasMore when conversation changes
-    setTypingUser(null); // Reset typing
+    setHasMore(true); 
+    setTypingUser(null); 
   }, [fetchMessages]);
 
   useEffect(() => {
     if (!loading && !isLoadingMore) {
       scrollToBottom();
     }
-  }, [loading]); // Scroll to bottom only on initial load
+  }, [loading]);
 
   // WebSocket: Handle Realtime Messages & Typing
   useEffect(() => {
@@ -106,13 +106,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onBack }) 
           };
           
           setMessages(prev => {
-             // Deduplicate: Check if message ID already exists
              if (prev.some(m => m.id === newMessage.id)) return prev;
              setTimeout(scrollToBottom, 50);
              return [...prev, newMessage];
           });
           
-          setTypingUser(null); // Hide typing indicator when message received
+          setTypingUser(null);
         }
       } else if (event.type === 'typing') {
         if (event.payload.conversation_id === conversation.id && event.payload.user_id !== currentUser?.id) {
@@ -142,7 +141,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onBack }) 
       
       if (socket && conversation.id) {
           const now = Date.now();
-          if (now - lastTypingTime.current > 2000) { // Throttle 2s
+          if (now - lastTypingTime.current > 2000) { 
               socket.emit('typing', { conversation_id: conversation.id });
               lastTypingTime.current = now;
           }
@@ -150,13 +149,13 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onBack }) 
           if (stopTypingTimer.current) clearTimeout(stopTypingTimer.current);
           stopTypingTimer.current = setTimeout(() => {
               socket.emit('stop_typing', { conversation_id: conversation.id });
-          }, 2000); // Stop after 2s of inactivity
+          }, 2000);
       }
   };
 
-  // Load More Logic
+  // ... (Load More Logic remains same)
   const loadMoreMessages = async () => {
-    if (!hasMore || isLoadingMore || messages.length === 0 || loading) return; // Check loading state
+    if (!hasMore || isLoadingMore || messages.length === 0 || loading) return; 
 
     try {
       setIsLoadingMore(true);
@@ -180,7 +179,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onBack }) 
         isRead: true,
       })).reverse();
 
-      // Filter duplicates in loaded messages
       setMessages(prev => {
           const newIds = new Set(prev.map(m => m.id));
           const uniqueNewMessages = mapped.filter(m => !newIds.has(m.id));
@@ -194,7 +192,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onBack }) 
     }
   };
 
-  // Scroll Restoration Effect
   useEffect(() => {
       if (messagesContainerRef.current && prevScrollHeightRef.current > 0) {
           const newScrollHeight = messagesContainerRef.current.scrollHeight;
@@ -214,17 +211,14 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onBack }) 
   };
 
   const handleSend = async () => {
-     // Clear typing manually immediately
      if (socket) socket.emit('stop_typing', { conversation_id: conversation.id });
      if (stopTypingTimer.current) clearTimeout(stopTypingTimer.current);
      
-     // (Existing logic...)
      if (!message.trim() || sending) return;
      const messageText = message.trim();
      setMessage('');
      setSending(true);
 
-     // Optimistic update — thêm tin nhắn tạm vào UI ngay
      const tempMessage: Message = {
       id: `temp-${Date.now()}`,
       senderId: currentUser?.id || '',
@@ -242,9 +236,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onBack }) 
         type: 'text',
       });
 
-      // Thay thế temp message bằng message thật từ server
       setMessages(prev => {
-        // Check nếu message thật đã được add từ socket rồi thì xoá temp message đi
         const alreadyExists = prev.some(m => m.id === sent.id);
         if (alreadyExists) {
             return prev.filter(m => m.id !== tempMessage.id);
@@ -264,17 +256,16 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onBack }) 
         );
       });
     } catch {
-      // Xóa temp message nếu gửi thất bại
       setMessages(prev => prev.filter(m => m.id !== tempMessage.id));
-      setMessage(messageText); // Trả lại message vào input
+      setMessage(messageText); 
     } finally {
       setSending(false);
     }
   };
 
   const handleCall = (type: 'video' | 'audio') => {
-    setCallType(type);
-    setShowCallPopup(true);
+    // USE CONTEXT
+    startCall(conversation.user, type, conversation.id);
   };
 
   return (
@@ -354,7 +345,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onBack }) 
                   className={`message ${isMe ? 'message-sent' : 'message-received'}`}
                 >
                   {!isMe && (
-                    // eslint-disable-next-line @next/next/no-img-element
                     <img 
                       src={conversation.user.avatar} 
                       alt="" 
@@ -415,14 +405,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onBack }) 
           </button>
         </div>
       </div>
-
-      {showCallPopup && (
-        <CallPopup
-          user={conversation.user}
-          type={callType}
-          onClose={() => setShowCallPopup(false)}
-        />
-      )}
     </>
   );
 };

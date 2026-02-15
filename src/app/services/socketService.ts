@@ -28,11 +28,22 @@ class SocketService {
 
         this.socket.onmessage = (event) => {
             try {
-                const data = JSON.parse(event.data);
-                console.log('WebSocket Message:', data);
-                this.callbacks.forEach(cb => cb(data));
+                // Handle potential multiple JSON objects (e.g. newline delimited)
+                const rawData = event.data;
+                const messages = rawData.split('\n').filter((line: string) => line.trim() !== '');
+
+                messages.forEach((msg: string) => {
+                    try {
+                        const data = JSON.parse(msg);
+                        console.log('WebSocket Message:', data);
+                        this.callbacks.forEach(cb => cb(data));
+                    } catch (e) {
+                        // Fallback: If split by newline wasn't enough (e.g. concatenated without newline), try brace counting or just log
+                        console.error('Error parsing individual message:', msg, e);
+                    }
+                });
             } catch (err) {
-                console.error('WebSocket Message Parsing Error:', err);
+                console.error('WebSocket Global Parsing Error:', err);
             }
         };
 

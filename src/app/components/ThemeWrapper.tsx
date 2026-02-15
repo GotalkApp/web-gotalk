@@ -63,13 +63,17 @@ const RouteGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   );
 };
 
+import { CallProvider } from '../context/CallContext';
+
 export const ThemeWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return (
     <LanguageProvider>
       <ThemeProvider>
         <AuthProvider>
           <SocketProvider>
-            <RouteGuard>{children}</RouteGuard>
+            <CallProvider>
+              <RouteGuard>{children}</RouteGuard>
+            </CallProvider>
           </SocketProvider>
         </AuthProvider>
       </ThemeProvider>

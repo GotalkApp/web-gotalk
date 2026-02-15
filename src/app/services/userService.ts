@@ -12,4 +12,13 @@ export const userService = {
         });
         return response.data;
     },
+
+    /**
+     * GET /users/:id
+     * Get user details by ID
+     */
+    getUserById: async (id: string): Promise<UserResponse> => {
+        const response = await api.get<UserResponse>(`/users/${id}`);
+        return response.data;
+    },
 };
