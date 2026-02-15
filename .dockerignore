@@ -1,0 +1,37 @@
+# Dependencies
+node_modules
+npm-debug.log*
+
+# Next.js build output
+.next
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env files (sẽ inject qua Docker build args / runtime env)
+.env
+.env.local
+.env.*.local
+
+# Template (source reference, không cần trong Docker)
+template
+
+# Docs
+README.md
+*.md
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore

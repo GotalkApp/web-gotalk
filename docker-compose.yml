@@ -1,0 +1,31 @@
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev # Target development stage
+    container_name: chat-web
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_API_URL=http://api.localhost/api/v1
+    volumes:
+      - .:/app # Mount source code for hot reload
+      - /app/node_modules # Use container's node_modules
+      - /app/.next # Store build artifacts in container (prevent host sync issues)
+    expose:
+      - "3000"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=Host(`chat.localhost`)"
+      - "traefik.http.routers.frontend.entrypoints=web"
+      - "traefik.http.services.frontend.loadbalancer.server.port=3000"
+    networks:
+      - gotalk-network
+    command: npm run dev
+
+networks:
+  gotalk-network:
+    external: true
