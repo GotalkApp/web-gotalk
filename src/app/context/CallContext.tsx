@@ -191,6 +191,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     } catch (err) {
         console.error('Failed to start call:', err);
+        alert('Không thể bắt đầu cuộc gọi. Vui lòng kiểm tra quyền truy cập Camera/Microphone.\nChi tiết: ' + (err as Error).message);
         setCallStatus('idle');
     }
 

@@ -55,15 +55,78 @@ const generateMessages = (userId: string, count: number): Message[] => {
   
   for (let i = count - 1; i >= 0; i--) {
     const isFromMe = i % 3 === 0;
-    messages.push({
-      id: `msg-${userId}-${i}`,
-      senderId: isFromMe ? 'me' : userId,
-      text: isFromMe 
-        ? ['Chào bạn!', 'Bạn khỏe không?', 'Hẹn gặp lại nhé!', 'OK, cảm ơn!', 'Được rồi'][i % 5]
-        : ['Xin chào!', 'Mình khỏe, còn bạn?', 'Hẹn gặp lại!', 'Không có gì!', 'Tuyệt vời!'][i % 5],
-      timestamp: new Date(now.getTime() - i * 600000),
-      isRead: i < count - 2
-    });
+    
+    // Add some messages with media
+    if (i === 3 && userId === '1') {
+      messages.push({
+        id: `msg-${userId}-${i}`,
+        senderId: isFromMe ? 'me' : userId,
+        text: 'Xem những bức ảnh này nè! 📸',
+        timestamp: new Date(now.getTime() - i * 600000),
+        isRead: true,
+        media: [
+          {
+            id: 'media-1',
+            type: 'image',
+            url: 'https://images.unsplash.com/photo-1682687220742-aba13b6e50ba?w=800&h=600&fit=crop'
+          },
+          {
+            id: 'media-2',
+            type: 'image',
+            url: 'https://images.unsplash.com/photo-1682687221038-404cb8830901?w=800&h=600&fit=crop'
+          },
+          {
+            id: 'media-3',
+            type: 'image',
+            url: 'https://images.unsplash.com/photo-1682687221080-5cb261c645cb?w=800&h=600&fit=crop'
+          }
+        ]
+      });
+    } else if (i === 2 && userId === '2') {
+      messages.push({
+        id: `msg-${userId}-${i}`,
+        senderId: isFromMe ? 'me' : userId,
+        timestamp: new Date(now.getTime() - i * 600000),
+        isRead: true,
+        media: [
+          {
+            id: 'media-4',
+            type: 'image',
+            url: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&h=600&fit=crop'
+          }
+        ]
+      });
+    } else if (i === 1 && userId === '3') {
+      messages.push({
+        id: `msg-${userId}-${i}`,
+        senderId: isFromMe ? 'me' : userId,
+        text: 'Hai bức ảnh đẹp 🌅',
+        timestamp: new Date(now.getTime() - i * 600000),
+        isRead: true,
+        media: [
+          {
+            id: 'media-5',
+            type: 'image',
+            url: 'https://images.unsplash.com/photo-1501594907352-04cda38ebc29?w=800&h=600&fit=crop'
+          },
+          {
+            id: 'media-6',
+            type: 'image',
+            url: 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=800&h=600&fit=crop'
+          }
+        ]
+      });
+    } else {
+      messages.push({
+        id: `msg-${userId}-${i}`,
+        senderId: isFromMe ? 'me' : userId,
+        text: isFromMe 
+          ? ['Chào bạn!', 'Bạn khỏe không?', 'Hẹn gặp lại nhé!', 'OK, cảm ơn!', 'Được rồi'][i % 5]
+          : ['Xin chào!', 'Mình khỏe, còn bạn?', 'Hẹn gặp lại!', 'Không có gì!', 'Tuyệt vời!'][i % 5],
+        timestamp: new Date(now.getTime() - i * 600000),
+        isRead: i < count - 2
+      });
+    }
   }
   
   return messages;

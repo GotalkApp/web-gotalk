@@ -4,9 +4,14 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Conversation, Message } from '../types';
 import { messageService } from '../services/messageService';
 import { useAuth } from '../context/AuthContext';
-import { Phone, Video, Info, Send, Smile, Paperclip, ArrowLeft, Loader2 } from 'lucide-react';
+import { Phone, Video, Info, Send, Smile, Paperclip, ArrowLeft, Loader2, Image as ImageIcon, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { useTranslation } from '../context/LanguageContext';
+import { uploadService } from '../services/uploadService';
+import { EmojiPicker } from './EmojiPicker';
+import { MediaViewer, MediaAttachment } from './MediaViewer';
+import { MessageMedia } from './MessageMedia';
+import { AttachmentInput } from '../types';
 
 interface ChatWindowProps {
   conversation: Conversation;
@@ -26,7 +31,15 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onBack }) 
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
-  // Removed local call state
+  
+  // Emoji picker & Media viewer states
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [mediaViewer, setMediaViewer] = useState<{ media: MediaAttachment[]; index: number } | null>(null);
+  
+  // File upload states
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -64,6 +77,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onBack }) 
         timestamp: new Date(msg.created_at),
         type: msg.type,
         isRead: true,
+        media: msg.attachments?.map((a, i) => ({
+            id: `${msg.id}-att-${i}`,
+            type: (a.type === 'video' ? 'video' : 'image') as 'image' | 'video',
+            url: a.url
+        })),
       })).reverse();
       setMessages(mapped);
     } catch {
@@ -103,6 +121,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onBack }) 
             timestamp: new Date(payload.created_at),
             type: payload.type,
             isRead: true,
+            media: payload.attachments?.map((a: any, i: number) => ({
+                id: `${payload.id}-att-${i}`,
+                type: (a.type === 'video' ? 'video' : 'image') as 'image' | 'video',
+                url: a.url
+            })),
           };
           
           setMessages(prev => {
@@ -177,6 +200,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onBack }) 
         timestamp: new Date(msg.created_at),
         type: msg.type,
         isRead: true,
+        media: msg.attachments?.map((a, i) => ({
+            id: `${msg.id}-att-${i}`,
+            type: (a.type === 'video' ? 'video' : 'image') as 'image' | 'video',
+            url: a.url
+        })),
       })).reverse();
 
       setMessages(prev => {
@@ -211,62 +239,130 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onBack }) 
   };
 
   const handleSend = async () => {
-     if (socket) socket.emit('stop_typing', { conversation_id: conversation.id });
-     if (stopTypingTimer.current) clearTimeout(stopTypingTimer.current);
-     
-     if (!message.trim() || sending) return;
-     const messageText = message.trim();
-     setMessage('');
-     setSending(true);
+    // Reset typing
+    if (socket) socket.emit('stop_typing', { conversation_id: conversation.id });
+    if (stopTypingTimer.current) clearTimeout(stopTypingTimer.current);
 
-     const tempMessage: Message = {
-      id: `temp-${Date.now()}`,
-      senderId: currentUser?.id || '',
-      text: messageText,
-      timestamp: new Date(),
-      type: 'text',
-      isRead: false,
-    };
-    setMessages(prev => [...prev, tempMessage]);
-    setTimeout(scrollToBottom, 50);
+    if ((!message.trim() && selectedFiles.length === 0) || sending) return;
+
+    setSending(true);
+    let attachments: AttachmentInput[] = [];
 
     try {
-      const sent = await messageService.sendMessage(conversation.id, {
-        content: messageText,
-        type: 'text',
-      });
-
-      setMessages(prev => {
-        const alreadyExists = prev.some(m => m.id === sent.id);
-        if (alreadyExists) {
-            return prev.filter(m => m.id !== tempMessage.id);
+      // 1. Upload files if present
+      if (selectedFiles.length > 0) {
+        try {
+           const uploads = await uploadService.uploadMultipleFiles(selectedFiles);
+           attachments = uploads.map(u => ({
+              type: u.mime_type.startsWith('image/') ? 'image' : u.mime_type.startsWith('video/') ? 'video' : 'file',
+              url: u.url,
+              file_name: u.file_name,
+              file_size: u.file_size
+           }));
+        } catch (error) {
+           console.error('Upload failed', error);
+           alert('Tải file thất bại');
+           setSending(false);
+           return;
         }
+      }
 
-        return prev.map(m =>
-          m.id === tempMessage.id
-            ? {
-                id: sent.id,
-                senderId: sent.sender_id,
-                text: sent.content,
-                timestamp: new Date(sent.created_at),
-                type: sent.type,
-                isRead: true,
-              }
-            : m
-        );
+      // 2. Send message
+      const msgType = attachments.length > 0 ? (attachments[0].type === 'image' ? 'image' : 'file') : 'text';
+      const sentMsg = await messageService.sendMessage(conversation.id, { 
+        content: message.trim(),
+        type: msgType,
+        attachments: attachments.length > 0 ? attachments : undefined
       });
-    } catch {
-      setMessages(prev => prev.filter(m => m.id !== tempMessage.id));
-      setMessage(messageText); 
+      
+      // Map to Message interface
+      const newMessage: Message = {
+        id: sentMsg.id,
+        senderId: sentMsg.sender_id,
+        text: sentMsg.content,
+        timestamp: new Date(sentMsg.created_at),
+        type: sentMsg.type,
+        isRead: true,
+        media: attachments.length > 0 ? attachments.map((a, i) => ({
+           id: `sent-${Date.now()}-${i}`,
+           type: a.type as 'image' | 'video',
+           url: a.url
+        })) : undefined
+      };
+      
+      setMessages(prev => [...prev, newMessage]);
+      setMessage('');
+      setSelectedFiles([]);
+      setPreviewUrls(prev => {
+         prev.forEach(url => URL.revokeObjectURL(url));
+         return [];
+      });
+      setShowEmojiPicker(false);
+      setTimeout(scrollToBottom, 100);
+      
+    } catch (error) {
+      console.error('Failed to send message:', error);
     } finally {
       setSending(false);
     }
   };
 
   const handleCall = (type: 'video' | 'audio') => {
-    // USE CONTEXT
     startCall(conversation.user, type, conversation.id);
   };
+
+  const handleEmojiSelect = (emoji: string) => {
+    setMessage(prev => prev + emoji);
+  };
+
+  const handleFileSelect = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    // Filter only images and videos
+    const validFiles = Array.from(files).filter(file => 
+      file.type.startsWith('image/') || file.type.startsWith('video/')
+    );
+
+    if (validFiles.length === 0) {
+      alert('Chỉ được chọn ảnh hoặc video');
+      return;
+    }
+
+    // Update state
+    setSelectedFiles(prev => [...prev, ...validFiles]);
+    
+    // Create preview URLs
+    const newPreviews = validFiles.map(file => URL.createObjectURL(file));
+    setPreviewUrls(prev => [...prev, ...newPreviews]);
+    
+    // Reset inputs
+    e.target.value = '';
+  };
+  
+  const removeFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+    setPreviewUrls(prev => {
+       // Revoke URL to avoid memory leak
+       URL.revokeObjectURL(prev[index]);
+       return prev.filter((_, i) => i !== index);
+    });
+  };
+
+  const handleMediaClick = (media: MediaAttachment[], index: number) => {
+    setMediaViewer({ media, index });
+  };
+  
+  // Cleanup preview URLs
+  useEffect(() => {
+    return () => {
+      previewUrls.forEach(url => URL.revokeObjectURL(url));
+    };
+  }, []);
 
   return (
     <>
@@ -352,9 +448,17 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onBack }) 
                     />
                   )}
                   <div className="message-content">
-                    <div className="message-bubble">
-                      {msg.text}
-                    </div>
+                    {msg.media && msg.media.length > 0 && (
+                      <MessageMedia 
+                        media={msg.media} 
+                        onClick={(index) => handleMediaClick(msg.media!, index)}
+                      />
+                    )}
+                    {msg.text && (
+                      <div className="message-bubble">
+                        {msg.text}
+                      </div>
+                    )}
                     <span className="message-time">
                       {format(msg.timestamp, 'HH:mm')}
                     </span>
@@ -380,8 +484,38 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onBack }) 
           <div ref={messagesEndRef} />
         </div>
 
+        {/* File Previews */}
+        {previewUrls.length > 0 && (
+          <div className="chat-attachment-preview">
+            {previewUrls.map((url, index) => (
+              <div key={index} className="preview-item">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={url} alt="Preview" />
+                <button 
+                  className="preview-remove"
+                  onClick={() => removeFile(index)}
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="chat-input">
-          <button className="icon-button" title="Thêm file">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*,video/*"
+            multiple
+            style={{ display: 'none' }}
+            onChange={handleFileChange}
+          />
+          <button 
+            className="icon-button" 
+            title="Thêm ảnh/video"
+            onClick={handleFileSelect}
+          >
             <Paperclip size={20} />
           </button>
           <input
@@ -392,19 +526,38 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onBack }) 
             onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
             disabled={sending}
           />
-          <button className="icon-button" title="Emoji">
+          <button 
+            className="icon-button" 
+            title="Emoji"
+            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+          >
             <Smile size={20} />
           </button>
           <button 
             className="icon-button send-button" 
             onClick={handleSend}
-            disabled={!message.trim() || sending}
+            disabled={(!message.trim() && selectedFiles.length === 0) || sending}
             title="Gửi"
           >
             <Send size={20} />
           </button>
         </div>
       </div>
+
+      {showEmojiPicker && (
+        <EmojiPicker
+          onEmojiSelect={handleEmojiSelect}
+          onClose={() => setShowEmojiPicker(false)}
+        />
+      )}
+
+      {mediaViewer && (
+        <MediaViewer
+          media={mediaViewer.media}
+          initialIndex={mediaViewer.index}
+          onClose={() => setMediaViewer(null)}
+        />
+      )}
     </>
   );
 };

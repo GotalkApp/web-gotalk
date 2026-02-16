@@ -22,11 +22,28 @@ export interface CreateConversationRequest {
     member_ids: string[];
 }
 
+export interface AttachmentInput {
+    type: 'image' | 'video' | 'file';
+    url: string;
+    file_name?: string;
+    file_size?: number;
+}
+
 export interface SendMessageRequest {
     content: string;
-    type?: 'text' | 'image' | 'file';
-    file_url?: string;
+    type?: 'text' | 'image' | 'file' | 'video';
     reply_to_id?: string;
+    attachments?: AttachmentInput[];
+    file_url?: string;
+    file_name?: string;
+    file_size?: number;
+}
+
+export interface UploadResponse {
+    url: string;
+    file_name: string;
+    file_size: number;
+    mime_type: string;
 }
 
 // ==================== API Response Types ====================
@@ -63,6 +80,7 @@ export interface MessageResponse {
     type: string;
     sender_id: string;
     created_at: string;
+    attachments?: AttachmentInput[];
 }
 
 export interface MemberResponse {
@@ -102,6 +120,13 @@ export interface User {
     lastSeen?: string;
 }
 
+export interface MediaAttachment {
+    id: string;
+    type: 'image' | 'video';
+    url: string;
+    thumbnail?: string;
+}
+
 export interface Message {
     id: string;
     senderId: string;
@@ -109,6 +134,7 @@ export interface Message {
     timestamp: Date;
     type: string;
     isRead: boolean;
+    media?: MediaAttachment[];
 }
 
 export interface Conversation {

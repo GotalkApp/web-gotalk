@@ -6,12 +6,20 @@ export interface User {
   lastSeen?: string;
 }
 
+export interface MediaAttachment {
+  id: string;
+  type: 'image' | 'video';
+  url: string;
+  thumbnail?: string;
+}
+
 export interface Message {
   id: string;
   senderId: string;
-  text: string;
+  text?: string;
   timestamp: Date;
   isRead: boolean;
+  media?: MediaAttachment[];
 }
 
 export interface Conversation {

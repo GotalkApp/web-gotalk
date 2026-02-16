@@ -3,7 +3,12 @@ import { Link, useLocation, useNavigate } from 'react-router';
 import { MessageCircle, Settings, User, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
-export const Sidebar: React.FC = () => {
+interface SidebarProps {
+  isOpen?: boolean;
+  onClose?: () => void;
+}
+
+export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { logout } = useAuth();
@@ -19,8 +24,14 @@ export const Sidebar: React.FC = () => {
     navigate('/login');
   };
 
+  const handleNavClick = () => {
+    if (onClose) {
+      onClose();
+    }
+  };
+
   return (
-    <div className="sidebar">
+    <div className={`sidebar ${isOpen ? 'sidebar-open' : ''}`}>
       <div className="sidebar-header">
         <MessageCircle size={32} className="sidebar-logo" />
       </div>
@@ -35,6 +46,7 @@ export const Sidebar: React.FC = () => {
               to={item.path}
               className={`sidebar-nav-item ${isActive ? 'active' : ''}`}
               title={item.label}
+              onClick={handleNavClick}
             >
               <Icon size={24} />
             </Link>

@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Conversation } from '../types';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { Search } from 'lucide-react';
 
 interface ConversationListProps {
   conversations: Conversation[];
@@ -14,13 +15,28 @@ export const ConversationList: React.FC<ConversationListProps> = ({
   selectedId,
   onSelect
 }) => {
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredConversations = conversations.filter(conversation =>
+    conversation.user.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
-    <div className="conversation-list">
+    <>
       <div className="conversation-list-header">
         <h2>Chat</h2>
       </div>
+      <div className="conversation-search">
+        <Search size={18} className="search-icon" />
+        <input
+          type="text"
+          placeholder="Tìm kiếm bạn bè..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+      </div>
       <div className="conversation-list-items">
-        {conversations.map(conversation => {
+        {filteredConversations.map(conversation => {
           const isSelected = conversation.id === selectedId;
           const lastMessage = conversation.lastMessage;
           
@@ -61,6 +77,6 @@ export const ConversationList: React.FC<ConversationListProps> = ({
           );
         })}
       </div>
-    </div>
+    </>
   );
 };

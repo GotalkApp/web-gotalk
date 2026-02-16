@@ -1,8 +1,12 @@
 import React, { useState } from 'react';
-import { Conversation } from '../types';
+import { Conversation, MediaAttachment } from '../types';
 import { Phone, Video, Info, Send, Smile, Paperclip, ArrowLeft } from 'lucide-react';
 import { format } from 'date-fns';
 import { CallPopup } from './CallPopup';
+import { EmojiPicker } from './EmojiPicker';
+import { AttachmentPicker } from './AttachmentPicker';
+import { MediaViewer } from './MediaViewer';
+import { MessageMedia } from './MessageMedia';
 
 interface ChatWindowProps {
   conversation: Conversation;
@@ -13,6 +17,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onBack }) 
   const [message, setMessage] = useState('');
   const [showCallPopup, setShowCallPopup] = useState(false);
   const [callType, setCallType] = useState<'video' | 'audio'>('video');
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showAttachmentPicker, setShowAttachmentPicker] = useState(false);
+  const [mediaViewer, setMediaViewer] = useState<{ media: MediaAttachment[]; index: number } | null>(null);
 
   const handleSend = () => {
     if (message.trim()) {
@@ -25,6 +32,19 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onBack }) 
   const handleCall = (type: 'video' | 'audio') => {
     setCallType(type);
     setShowCallPopup(true);
+  };
+
+  const handleEmojiSelect = (emoji: string) => {
+    setMessage(prev => prev + emoji);
+  };
+
+  const handleAttachmentSelect = (type: 'image' | 'video' | 'file') => {
+    console.log('Selected attachment type:', type);
+    // Mock file selection - in real app, would open file picker
+  };
+
+  const handleMediaClick = (media: MediaAttachment[], index: number) => {
+    setMediaViewer({ media, index });
   };
 
   return (
@@ -93,9 +113,17 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onBack }) 
                   />
                 )}
                 <div className="message-content">
-                  <div className="message-bubble">
-                    {msg.text}
-                  </div>
+                  {msg.media && msg.media.length > 0 && (
+                    <MessageMedia 
+                      media={msg.media} 
+                      onClick={(index) => handleMediaClick(msg.media!, index)}
+                    />
+                  )}
+                  {msg.text && (
+                    <div className="message-bubble">
+                      {msg.text}
+                    </div>
+                  )}
                   <span className="message-time">
                     {format(msg.timestamp, 'HH:mm')}
                   </span>
@@ -106,7 +134,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onBack }) 
         </div>
 
         <div className="chat-input">
-          <button className="icon-button" title="Thêm file">
+          <button 
+            className="icon-button" 
+            title="Thêm file"
+            onClick={() => setShowAttachmentPicker(true)}
+          >
             <Paperclip size={20} />
           </button>
           <input
@@ -116,7 +148,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onBack }) 
             onChange={(e) => setMessage(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSend()}
           />
-          <button className="icon-button" title="Emoji">
+          <button 
+            className="icon-button" 
+            title="Emoji"
+            onClick={() => setShowEmojiPicker(true)}
+          >
             <Smile size={20} />
           </button>
           <button 
@@ -135,6 +171,28 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onBack }) 
           user={conversation.user}
           type={callType}
           onClose={() => setShowCallPopup(false)}
+        />
+      )}
+
+      {showEmojiPicker && (
+        <EmojiPicker
+          onEmojiSelect={handleEmojiSelect}
+          onClose={() => setShowEmojiPicker(false)}
+        />
+      )}
+
+      {showAttachmentPicker && (
+        <AttachmentPicker
+          onSelect={handleAttachmentSelect}
+          onClose={() => setShowAttachmentPicker(false)}
+        />
+      )}
+
+      {mediaViewer && (
+        <MediaViewer
+          media={mediaViewer.media}
+          initialIndex={mediaViewer.index}
+          onClose={() => setMediaViewer(null)}
         />
       )}
     </>
