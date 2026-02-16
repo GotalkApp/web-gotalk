@@ -21,4 +21,9 @@ export const userService = {
         const response = await api.get<UserResponse>(`/users/${id}`);
         return response.data;
     },
+
+    /**
+     * PUT /users/profile
+     * Update current user profile
+     */
 };

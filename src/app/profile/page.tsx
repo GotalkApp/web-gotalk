@@ -1,19 +1,104 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Camera, Mail, Globe, Calendar } from 'lucide-react';
+import { Camera, Mail, Globe, Calendar, Save, X, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { authService } from '../services/authService';
 
 export default function ProfilePage() {
-  const { user } = useAuth();
+  const { user, refreshProfile } = useAuth();
+  
+  // Edit mode state
+  const [isEditing, setIsEditing] = useState(false);
+  const [loading, setLoading] = useState(false);
+  
+  // Form state
+  const [name, setName] = useState('');
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Initialize form with user data
+  useEffect(() => {
+    if (user) {
+      setName(user.name);
+      setPreviewUrl(user.avatar);
+    }
+  }, [user]);
 
   if (!user) {
     return null;
   }
 
-  const avatarUrl = user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=random&size=200`;
+  const handleEditClick = () => {
+    setIsEditing(true);
+    setName(user.name);
+    setPreviewUrl(user.avatar);
+    setAvatarFile(null);
+  };
+
+  const handleCancelClick = () => {
+    setIsEditing(false);
+    setName(user.name);
+    setPreviewUrl(user.avatar);
+    setAvatarFile(null);
+  };
+
+  const handleAvatarClick = () => {
+    if (isEditing) {
+      fileInputRef.current?.click();
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        alert('Vui lòng chọn file ảnh');
+        return;
+      }
+      setAvatarFile(file);
+      setPreviewUrl(URL.createObjectURL(file));
+    }
+  };
+
+  const handleSave = async () => {
+    if (!name.trim()) {
+      alert('Tên không được để trống');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Update profile with direct file upload
+      await authService.updateProfile({
+        name: name.trim(),
+        avatarFile: avatarFile || undefined,
+      });
+
+      // Refresh user context
+      if (refreshProfile) {
+        await refreshProfile();
+      } else {
+        // Fallback if refreshProfile is missing (should verify context)
+        console.warn('refreshProfile not found in context');
+      }
+      
+      setIsEditing(false);
+      setAvatarFile(null);
+      // alert('Cập nhật hồ sơ thành công');
+    } catch (error) {
+      console.error('Failed to update profile:', error);
+      alert('Cập nhật thất bại. Vui lòng thử lại.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const avatarUrl = previewUrl || user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=random&size=200`;
   const joinDate = user.last_seen 
     ? format(new Date(user.last_seen), "dd MMMM, yyyy", { locale: vi }) 
     : 'N/A';
@@ -27,17 +112,37 @@ export default function ProfilePage() {
 
         <div className="profile-content">
           <div className="profile-avatar-section">
-            <div className="profile-avatar-wrapper">
+            <div className={`profile-avatar-wrapper ${isEditing ? 'editable' : ''}`} onClick={handleAvatarClick}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={avatarUrl} alt={user.name} className="profile-avatar" />
-              <button className="profile-avatar-edit">
-                <Camera size={20} />
-              </button>
+              <img src={avatarUrl} alt={name} className="profile-avatar" />
+              {isEditing && (
+                <div className="profile-avatar-overlay">
+                    <Camera size={24} color="white" />
+                </div>
+              )}
+              <input 
+                type="file" 
+                ref={fileInputRef}
+                style={{ display: 'none' }}
+                accept="image/*"
+                onChange={handleFileChange}
+              />
             </div>
-            <h3 className="profile-name">{user.name}</h3>
-            <span className={`profile-status-badge ${user.is_online ? 'online' : 'offline'}`}>
-              {user.is_online ? 'Đang hoạt động' : 'Ngoại tuyến'}
-            </span>
+            
+            {isEditing ? (
+                <div className="profile-name-edit">
+                    <input 
+                        type="text" 
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        className="profile-input"
+                        placeholder="Nhập tên hiển thị"
+                        maxLength={50}
+                    />
+                </div>
+            ) : (
+                <h3 className="profile-name">{user.name}</h3>
+            )}
           </div>
 
           <div className="profile-info-section">
@@ -84,7 +189,32 @@ export default function ProfilePage() {
           </div>
 
           <div className="profile-actions">
-            <button className="button button-primary">Chỉnh sửa hồ sơ</button>
+            {isEditing ? (
+                <div className="flex gap-3">
+                    <button 
+                        className="button button-secondary flex items-center gap-2" 
+                        onClick={handleCancelClick}
+                        disabled={loading}
+                    >
+                        <X size={18} /> Hủy
+                    </button>
+                    <button 
+                        className="button button-primary flex items-center gap-2"
+                        onClick={handleSave}
+                        disabled={loading}
+                    >
+                        {loading ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+                        Lưu thay đổi
+                    </button>
+                </div>
+            ) : (
+                <button 
+                    className="button button-primary"
+                    onClick={handleEditClick}
+                >
+                    Chỉnh sửa hồ sơ
+                </button>
+            )}
           </div>
         </div>
       </div>

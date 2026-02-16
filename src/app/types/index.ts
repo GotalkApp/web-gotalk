@@ -22,6 +22,18 @@ export interface CreateConversationRequest {
     member_ids: string[];
 }
 
+export interface UpdateProfileRequest {
+    name?: string;
+    avatar?: string;
+}
+
+export interface UpdateSettingsRequest {
+    language?: string;
+    is_notification_enabled?: boolean;
+    is_sound_enabled?: boolean;
+    theme?: 'light' | 'dark' | 'system';
+}
+
 export interface AttachmentInput {
     type: 'image' | 'video' | 'file';
     url: string;
@@ -56,6 +68,11 @@ export interface UserResponse {
     auth_provider: string;
     is_online: boolean;
     last_seen: string;
+    language?: string;
+    is_notification_enabled?: boolean;
+    is_sound_enabled?: boolean;
+    theme?: string;
+    bio?: string;
 }
 
 export interface AuthResponse {

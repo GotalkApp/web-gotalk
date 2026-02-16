@@ -6,6 +6,8 @@ import {
     AuthResponse,
     OTPSentResponse,
     UserResponse,
+    UpdateProfileRequest,
+    UpdateSettingsRequest,
 } from '../types';
 
 export const authService = {
@@ -57,5 +59,50 @@ export const authService = {
             // Ignore server errors during logout to ensure client cleanup
             console.warn('Server logout failed, proceeding with client logout:', error);
         }
+    },
+
+    /**
+     * PUT /auth/profile
+     * Update current user profile with optional avatar upload
+     * Supports multipart/form-data for avatar file
+     */
+    updateProfile: async (data: UpdateProfileRequest & { avatarFile?: File }): Promise<UserResponse> => {
+        const formData = new FormData();
+
+        if (data.name) {
+            formData.append('name', data.name);
+        }
+
+        if (data.avatarFile) {
+            formData.append('avatar', data.avatarFile);
+        } else if (data.avatar) {
+            // If avatar is a URL string (backward compatibility)
+            formData.append('avatar', data.avatar);
+        }
+
+        const response = await api.put<UserResponse>('/auth/profile', formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        });
+        return response.data;
+    },
+
+    /**
+     * GET /auth/settings
+     * Get current user settings
+     */
+    getSettings: async (): Promise<UserResponse> => {
+        const response = await api.get<UserResponse>('/auth/settings');
+        return response.data;
+    },
+
+    /**
+     * PUT /auth/settings
+     * Update user settings
+     */
+    updateSettings: async (data: UpdateSettingsRequest): Promise<UserResponse> => {
+        const response = await api.put<UserResponse>('/auth/settings', data);
+        return response.data;
     },
 };
