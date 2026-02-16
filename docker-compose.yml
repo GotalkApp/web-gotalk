@@ -8,6 +8,8 @@ services:
     restart: unless-stopped
     ports:
       - "3000:3000"
+    env_file:
+      - .env.local
     environment:
       - NODE_ENV=development
       - NEXT_PUBLIC_API_URL=http://api.localhost/api/v1

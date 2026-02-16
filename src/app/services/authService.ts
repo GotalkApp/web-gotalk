@@ -105,4 +105,8 @@ export const authService = {
         const response = await api.put<UserResponse>('/auth/settings', data);
         return response.data;
     },
+    loginWithGoogle: async (idToken: string): Promise<AuthResponse> => {
+        const response = await api.post<AuthResponse>('/auth/google', { id_token: idToken });
+        return response.data;
+    },
 };

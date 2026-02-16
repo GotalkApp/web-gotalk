@@ -3,7 +3,7 @@ export type Locale = 'en' | 'vi';
 export const messages = {
     en: {
         // Common
-        app_name: 'Messenger',
+        app_name: 'GoTalk',
         app_tagline: 'Connect with friends and the world around you',
         loading: 'Loading...',
         error_occurred: 'An error occurred. Please try again.',
@@ -99,7 +99,7 @@ export const messages = {
     },
     vi: {
         // Common
-        app_name: 'Messenger',
+        app_name: 'GoTalk',
         app_tagline: 'Kết nối với bạn bè và thế giới xung quanh bạn',
         loading: 'Đang tải...',
         error_occurred: 'Đã xảy ra lỗi. Vui lòng thử lại.',
