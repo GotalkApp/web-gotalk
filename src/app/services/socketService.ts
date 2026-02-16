@@ -30,15 +30,16 @@ class SocketService {
             try {
                 // Handle potential multiple JSON objects (e.g. newline delimited)
                 const rawData = event.data;
+                console.log('WS Raw Data:', rawData); // Debug log
+
                 const messages = rawData.split('\n').filter((line: string) => line.trim() !== '');
 
                 messages.forEach((msg: string) => {
                     try {
                         const data = JSON.parse(msg);
-                        console.log('WebSocket Message:', data);
+                        console.log('WebSocket Message Parsed:', data); // Debug log
                         this.callbacks.forEach(cb => cb(data));
                     } catch (e) {
-                        // Fallback: If split by newline wasn't enough (e.g. concatenated without newline), try brace counting or just log
                         console.error('Error parsing individual message:', msg, e);
                     }
                 });
@@ -78,7 +79,10 @@ class SocketService {
 
     public emit(event: string, payload: any) {
         if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-            this.socket.send(JSON.stringify({ type: event, payload }));
+            const data = JSON.stringify({ type: event, payload });
+            console.log(`Socket sending [${event}]:`, data.length, 'chars');
+
+            this.socket.send(data);
         }
     }
 

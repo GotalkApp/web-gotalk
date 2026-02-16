@@ -139,6 +139,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setCallType(type);
     setConversationId(convId);
     setCallStatus('calling');
+    console.log('Starting call to:', selectedUser.id, 'Type:', type, 'Conv:', convId);
 
     // Wait for state updates to reflect in initializePeerConnection via partner/convId refs if needed
     // But we passed dependencies correctly.
@@ -153,44 +154,87 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Instead of complex refactoring, I'll pass IDs to `initializePeerConnection` or handling ICE inside the function scope.
     
     try {
+        console.log('Requesting media access...'); // Debug
         const stream = await navigator.mediaDevices.getUserMedia({
             audio: true,
             video: type === 'video'
         });
+        console.log('Media access granted. Stream ID:', stream.id);
         
         setLocalStream(stream);
         localStreamRef.current = stream;
 
+        console.log('Initializing PeerConnection...');
         const pc = new RTCPeerConnection(STUN_SERVERS);
         peerConnectionRef.current = pc;
 
-        stream.getTracks().forEach(track => pc.addTrack(track, stream));
+        console.log('Adding tracks to PC...');
+        stream.getTracks().forEach(track => {
+            console.log(`Adding track: ${track.kind}, enabled: ${track.enabled}`);
+            pc.addTrack(track, stream);
+        });
 
-        pc.ontrack = (event) => setRemoteStream(event.streams[0]);
+        pc.ontrack = (event) => {
+            console.log('Remote track received:', event.streams[0].id);
+            setRemoteStream(event.streams[0]);
+        };
+
+        const iceCandidatesBuffer: RTCIceCandidate[] = [];
+        let isOfferEmitted = false;
 
         pc.onicecandidate = (event) => {
-            if (event.candidate && socket) {
-                socket.emit('call_ice_candidate', {
-                    to: selectedUser.id,
-                    conversation_id: convId,
-                    candidate: event.candidate
-                });
+            if (event.candidate) {
+                if (isOfferEmitted && socket) {
+                    socket.emit('call_ice_candidate', {
+                        to: selectedUser.id,
+                        conversation_id: convId,
+                        candidate: event.candidate
+                    });
+                } else {
+                    console.log('Buffering ICE candidate...'); // Debug
+                    iceCandidatesBuffer.push(event.candidate);
+                }
             }
         };
 
+        console.log('Creating offer...'); // Debug
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
+        console.log('Offer created. SDP Size:', JSON.stringify(offer).length); // Debug size
+
 
         if (socket) {
+            console.log('Original SDP Size:', offer.sdp?.length); // Debug (keep this for now as useful info)
+            
             socket.emit('call_offer', {
                 to: selectedUser.id,
                 conversation_id: convId,
-                sdp: offer,
+                sdp: { type: offer.type, sdp: offer.sdp }, // Use original SDP
                 call_type: type
             });
+            console.log('Socket call_offer emitted.');
+            
+            // Delay flushing candidates to allow server to process offer first
+            setTimeout(() => {
+                isOfferEmitted = true; // Enable live emitting
+                console.log('Flushing buffered ICE candidates...', iceCandidatesBuffer.length); // Debug
+                iceCandidatesBuffer.forEach(candidate => {
+                    if (socket) {
+                        socket.emit('call_ice_candidate', {
+                            to: selectedUser.id,
+                            conversation_id: convId,
+                            candidate: candidate
+                        });
+                    }
+                });
+                // Clear buffer (optional, as we don't reuse it here)
+                iceCandidatesBuffer.length = 0;
+            }, 1000);
+        } else {
+            console.error('Socket is missing, cannot emit offer!'); // Debug
         }
     } catch (err) {
-        console.error('Failed to start call:', err);
+        console.error('Failed to start call (Error in catch block):', err);
         alert('Không thể bắt đầu cuộc gọi. Vui lòng kiểm tra quyền truy cập Camera/Microphone.\nChi tiết: ' + (err as Error).message);
         setCallStatus('idle');
     }
@@ -264,6 +308,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const { type, payload } = event;
 
         if (type === 'call_offer') {
+             console.log('Received Call Offer:', payload); // Debug log
              // Incoming call
              // payload: { from, conversation_id, sdp, call_type }
              if (callStatus !== 'idle') {
@@ -281,6 +326,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     avatar: '', // Use placeholder in UI
                     status: 'online'
                 };
+                console.log('Fetching caller info for:', payload.from);
 
                 try {
                      const userDetails = await userService.getUserById(payload.from);
@@ -300,6 +346,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 setCallType(payload.call_type);
                 offerSdpRef.current = payload.sdp;
                 setCallStatus('incoming');
+                console.log('Incoming call setup done. Type:', payload.call_type);
 
              } catch (err) {
                  console.error('Error handling incoming call:', err);
