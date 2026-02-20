@@ -27,10 +27,6 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Build argument cho API URL (có thể override khi build)
-ARG NEXT_PUBLIC_API_URL=http://api.localhost/api/v1
-ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
-
 # Build Next.js (standalone output)
 RUN npm run build
 

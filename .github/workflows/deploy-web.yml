@@ -20,15 +20,16 @@ jobs:
     runs-on: ubuntu-latest
 
     outputs:
-      # Chỉ output image_tag (chuỗi thuần, không chứa secret)
-      # VD: v260220.5
       image_tag: ${{ steps.meta.outputs.version }}
 
     steps:
+      - name: 📢 Thông báo bắt đầu Build cho Discord
+        run: |
+          curl -H "Content-Type: application/json" -d '{"content": "⏳ **[GoTalk Web]** Bắt đầu quá trình Build & Push Docker Image từ commit: `'"${{ github.sha }}"'`"}' ${{ secrets.DISCORD_WEBHOOK_URL }}
+
       - name: 📥 Checkout source code
         uses: actions/checkout@v4
 
-      # Tạo image tag theo format: v{YYMMDD}.{run_number}
       - name: 🏷️ Generate image tag
         id: meta
         run: |
@@ -53,16 +54,22 @@ jobs:
           file: ./Dockerfile
           target: runner
           push: true
-          # Dùng trực tiếp secret ở đây (trong cùng job) → KHÔNG bị mask
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/gotalk-web:${{ steps.meta.outputs.version }}
             ${{ secrets.DOCKERHUB_USERNAME }}/gotalk-web:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: ✅ Image pushed successfully
+      # --- PHẦN MỚI THÊM VÀO ---
+      - name: ✅ Thông báo Build/Push Xong cho Discord
+        if: success()
         run: |
-          echo "🎉 Image pushed: ${{ secrets.DOCKERHUB_USERNAME }}/gotalk-web:${{ steps.meta.outputs.version }}"
+          curl -H "Content-Type: application/json" -d '{"content": "🐳 **[Build Xong]** Đã build và push thành công image lên Dockerhub\n👉 Phiên bản hiện tại: `'"${{ secrets.DOCKERHUB_USERNAME }}/gotalk-web:${{ steps.meta.outputs.version }}"'`"}' ${{ secrets.DISCORD_WEBHOOK_URL }}
+          
+      - name: ❌ Thông báo lỗi Build (Nếu có)
+        if: failure()
+        run: |
+          curl -H "Content-Type: application/json" -d '{"content": "🚨 **[Cảnh Báo Lỗi]** Quá trình Build & Push Image bị thất bại. Anh em vào Github CI check lại code nha!"}' ${{ secrets.DISCORD_WEBHOOK_URL }}
 
   # ============================================================
   # JOB 2: Deploy lên VPS qua SSH (kubectl set image)
@@ -73,6 +80,10 @@ jobs:
     needs: build-and-push
 
     steps:
+      - name: 📢 Báo hiệu Deploy lên VPS
+        run: |
+          curl -H "Content-Type: application/json" -d '{"content": "🚀 **[Tiến Hành Deploy]** Đang tiến hành cập nhật Image mới lên máy chủ VPS..."}' ${{ secrets.DISCORD_WEBHOOK_URL }}
+
       - name: 💻 SSH into VPS and deploy
         uses: appleboy/ssh-action@v1
         with:
@@ -80,13 +91,10 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: 22
-          # Truyền biến vào SSH session qua envs thay vì nội suy trong script
-          # → tránh bị GitHub mask do chứa secret value
           envs: IMAGE_TAG,DOCKERHUB_USERNAME,K8S_NAMESPACE,K8S_DEPLOYMENT
           script: |
             set -e
 
-            # Ghép image name từ envs được truyền vào SSH session
             NEW_IMAGE="${DOCKERHUB_USERNAME}/gotalk-web:${IMAGE_TAG}"
 
             echo "🚀 Deploying: ${NEW_IMAGE}"
@@ -97,9 +105,10 @@ jobs:
               --namespace=${K8S_NAMESPACE}
 
             echo "⏳ Waiting for rollout to complete..."
+            # Nếu web có chậm thì chờ tối đa là 5 phút thay vì 3 phút
             kubectl rollout status deployment/${K8S_DEPLOYMENT} \
               --namespace=${K8S_NAMESPACE} \
-              --timeout=180s
+              --timeout=300s
 
             echo "✅ Deployment successful!"
             echo "📋 Current pods:"
@@ -110,7 +119,13 @@ jobs:
           K8S_NAMESPACE: ${{ env.K8S_NAMESPACE }}
           K8S_DEPLOYMENT: ${{ env.K8S_DEPLOYMENT }}
 
-      - name: 🎉 Deploy completed
+      # --- PHẦN MỚI THÊM VÀO ---
+      - name: 🎉 Báo cáo Deploy Thành Công
+        if: success()
         run: |
-          echo "✅ GoTalk Web deployed!"
-          echo "🖼️ Image tag: ${{ needs.build-and-push.outputs.image_tag }}"
+          curl -H "Content-Type: application/json" -d '{"content": "🎉 **[Thành Công]** Hệ thống Deploy thành công! Frontend (`'"${{ needs.build-and-push.outputs.image_tag }}"'`) đã được làm mới trên K3s."}' ${{ secrets.DISCORD_WEBHOOK_URL }}
+          
+      - name: ❌ Báo cáo Kẹt VPS / Gãy Deploy
+        if: failure()
+        run: |
+          curl -H "Content-Type: application/json" -d '{"content": "🔥 **[CHÁY SERVER]** Máy chủ VPS không thể thiết lập Image hoặc Web NextJS bị lặp lại lỗi khởi động CrashLoopBackOff! Kỹ thuật mở K9s check liền!"}' ${{ secrets.DISCORD_WEBHOOK_URL }}
