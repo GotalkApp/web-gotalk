@@ -1,6 +1,9 @@
 import axios from 'axios';
+import { getEnv } from '../config/env';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://api.localhost/api/v1';
+// getEnv() ensures we read from window.__ENV on the client
+// which is populated dynamically by EnvScript from the server.
+const API_BASE_URL = getEnv().API_URL;
 
 const api = axios.create({
     baseURL: API_BASE_URL,

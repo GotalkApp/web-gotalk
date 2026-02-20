@@ -1,5 +1,6 @@
 export interface AppConfig {
     API_URL: string;
+    WS_URL: string;
     GOOGLE_CLIENT_ID: string;
 }
 
@@ -20,8 +21,10 @@ export const getEnv = (): AppConfig => {
     }
 
     // Default values or process.env fallbacks
+    // Use bracket notation to prevent build-time inlining by Next.js/Webpack
     return {
-        API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1',
-        GOOGLE_CLIENT_ID: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '',
+        API_URL: process.env['NEXT_PUBLIC_API_URL'] || 'http://localhost:8000/api/v1',
+        WS_URL: process.env['NEXT_PUBLIC_WS_URL'] || 'ws://localhost:8000/ws',
+        GOOGLE_CLIENT_ID: process.env['NEXT_PUBLIC_GOOGLE_CLIENT_ID'] || '',
     };
 };

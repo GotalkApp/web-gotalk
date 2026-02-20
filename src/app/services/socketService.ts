@@ -1,4 +1,5 @@
 import { MessageResponse } from '../types';
+import { getEnv } from '../config/env';
 
 type MessageCallback = (message: any) => void;
 
@@ -12,7 +13,7 @@ class SocketService {
         if (this.socket && (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING)) return;
 
         this.token = token;
-        const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://api.localhost/ws';
+        const wsUrl = getEnv().WS_URL;
         const url = `${wsUrl}?token=${token}`;
 
         console.log('Connecting to WebSocket:', wsUrl);
