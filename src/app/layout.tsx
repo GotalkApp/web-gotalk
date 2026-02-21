@@ -1,31 +1,32 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { ThemeWrapper } from "@/app/components/ThemeWrapper";
-import { EnvScript } from "@/app/config/EnvScript"; // Import EnvScript
-import { AppConfig } from "@/app/config/env"; // Import AppConfig type
 
 export const metadata: Metadata = {
   title: 'GoTalk',
   description: 'Realtime Chat Application',
 };
 
+// Layout này không cần dynamic nữa → tất cả các trang sẽ được pre-render tĩnh (SSG)
+// Env được inject bằng /config.js route riêng ở runtime
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Get environment variables at runtime (on server)
-  const config: AppConfig = {
-    // Fallback logic handled here or EnvScript, but explicit is better
-    API_URL: process.env['NEXT_PUBLIC_API_URL'] || 'http://localhost:8000/api/v1',
-    WS_URL: process.env['NEXT_PUBLIC_WS_URL'] || 'ws://localhost:8000/ws',
-    GOOGLE_CLIENT_ID: process.env['NEXT_PUBLIC_GOOGLE_CLIENT_ID'] || '',
-  };
-
   return (
     <html lang="vi">
+      <head>
+        {/*
+          Script /config.js là một Next.js API route động (force-dynamic).
+          Trình duyệt tải script này → server đọc process.env bên trong container
+          và trả về: window.__ENV = { API_URL, WS_URL, GOOGLE_CLIENT_ID }
+          Nhờ vậy client JS có thể đọc đúng env của Docker lúc runtime.
+        */}
+        {/* eslint-disable-next-line @next/next/no-sync-scripts */}
+        <script src="/config.js" />
+      </head>
       <body>
-        <EnvScript config={config} />
         <ThemeWrapper>{children}</ThemeWrapper>
       </body>
     </html>
