@@ -60,11 +60,16 @@ function LoginForm() {
               <MessageCircle size={48} />
             </div>
             <h1>{t('app_name')}</h1>
+            {/* <p>{t('app_tagline')}</p> */}
           </div>
         </div>
         
         <div className="login-right">
           <div className="login-card">
+            <div className="login-card-header">
+              <h2 className='text-center'>{t('login_title')}</h2>
+            </div>
+            
             <form onSubmit={handleSubmit} className="login-form">
               {error && (
                 <div className="login-error">
